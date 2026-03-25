@@ -151,8 +151,7 @@ function buildDecayTimes(order, settings) {
   const steps = Math.ceil(perOrderMinutes / decayStepMinutes);
 
   return Array.from({ length: steps }, (_, index) => {
-    const minutesFromStart =
-      decayLagMinutes + Math.max(0, index) * decayStepMinutes;
+    const minutesFromStart = decayLagMinutes + index * decayStepMinutes;
     return createdAt + minutesFromStart * 60 * 1000;
   });
 }
@@ -204,7 +203,7 @@ export async function completeOldestActiveOrder(orders) {
   return orderId;
 }
 
-export async function setReceptionOpen(isOpen, settings = DEFAULT_SETTINGS) {
+export async function setReceptionOpen(isOpen) {
   const now = new Date();
   const timestamp = now.getTime();
 
@@ -216,7 +215,18 @@ export async function setReceptionOpen(isOpen, settings = DEFAULT_SETTINGS) {
   await writeLog(isOpen ? "open_reception" : "close_reception", null, timestamp);
 }
 
-export async function saveSettings(currentSettings, nextSettings) {
+export async function saveSettings(arg1, arg2) {
+  let currentSettings;
+  let nextSettings;
+
+  if (arg2 === undefined) {
+    currentSettings = { ...DEFAULT_SETTINGS };
+    nextSettings = arg1 || {};
+  } else {
+    currentSettings = { ...DEFAULT_SETTINGS, ...(arg1 || {}) };
+    nextSettings = arg2 || {};
+  }
+
   const perOrderMinutes =
     nextSettings.perOrderMinutes === "" || nextSettings.perOrderMinutes == null
       ? Number(currentSettings.perOrderMinutes)
