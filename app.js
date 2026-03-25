@@ -230,8 +230,8 @@ export async function completeOldestActiveOrder(orders) {
   return orderId;
 }
 
-export async function setReceptionOpen(isOpen) {
-  if (isOpen && shouldForceClose({ isOpen: true, autoCloseHour: DEFAULT_SETTINGS.autoCloseHour })) {
+export async function setReceptionOpen(isOpen, currentSettings = DEFAULT_SETTINGS) {
+  if (isOpen && shouldForceClose({ ...DEFAULT_SETTINGS, ...currentSettings, isOpen: true })) {
     throw new Error("19時以降は受付開始できません。");
   }
 

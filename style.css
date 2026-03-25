@@ -270,6 +270,16 @@ body {
   font-size: 14px;
 }
 
+.button-spacer {
+  min-height: 56px;
+}
+
+.settings-summary {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
 .settings-form {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
@@ -342,6 +352,10 @@ body {
   .settings-form-compact,
   .button-grid {
     grid-template-columns: 1fr;
+  }
+
+  .button-spacer {
+    display: none;
   }
 
   .stat-card-large {

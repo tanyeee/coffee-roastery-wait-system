@@ -24,6 +24,7 @@ const currentWaitEl = document.getElementById("admin-current-wait");
 const nextDecayEl = document.getElementById("admin-next-decay");
 const openStatusEl = document.getElementById("admin-open-status");
 const activeOrdersEl = document.getElementById("admin-active-orders");
+const currentSettingsSummaryEl = document.getElementById("current-settings-summary");
 
 const addOrderButton = document.getElementById("add-order-button");
 const cancelOrderButton = document.getElementById("cancel-order-button");
@@ -89,14 +90,14 @@ completeOrderButton.addEventListener("click", async () => {
 
 openReceptionButton.addEventListener("click", async () => {
   await runAction(async () => {
-    await setReceptionOpen(true);
+    await setReceptionOpen(true, latestData.settings);
     return "受付開始に切り替えました。";
   });
 });
 
 closeReceptionButton.addEventListener("click", async () => {
   await runAction(async () => {
-    await setReceptionOpen(false);
+    await setReceptionOpen(false, latestData.settings);
     return "受付終了に切り替えました。";
   });
 });
@@ -104,11 +105,20 @@ closeReceptionButton.addEventListener("click", async () => {
 settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   await runAction(async () => {
+    const current = latestData.settings;
+    const perOrderMinutes = normalizeNumberInput(perOrderInput.value, current.perOrderMinutes);
+    const decayLagMinutes = normalizeNumberInput(decayLagInput.value, current.decayLagMinutes);
+    const decayStepMinutes = normalizeNumberInput(decayStepInput.value, current.decayStepMinutes);
+
     await saveSettings({
-      perOrderMinutes: perOrderInput.value,
-      decayLagMinutes: decayLagInput.value,
-      decayStepMinutes: decayStepInput.value
+      perOrderMinutes,
+      decayLagMinutes,
+      decayStepMinutes
     });
+
+    perOrderInput.value = "";
+    decayLagInput.value = "";
+    decayStepInput.value = "";
     return "設定を保存しました。";
   });
 });
@@ -133,9 +143,19 @@ function renderAdmin(data) {
   openStatusEl.textContent = data.settings.isOpen ? "受付中" : "受付終了";
   activeOrdersEl.textContent = String(activeOrders.length);
 
-  perOrderInput.value = data.settings.perOrderMinutes;
-  decayLagInput.value = data.settings.decayLagMinutes;
-  decayStepInput.value = data.settings.decayStepMinutes;
+  perOrderInput.placeholder = String(data.settings.perOrderMinutes);
+  decayLagInput.placeholder = String(data.settings.decayLagMinutes);
+  decayStepInput.placeholder = String(data.settings.decayStepMinutes);
+
+  currentSettingsSummaryEl.textContent = `現在設定: 1件あたり${data.settings.perOrderMinutes}分 / ラグ${data.settings.decayLagMinutes}分 / 刻み${data.settings.decayStepMinutes}分`;
+}
+
+function normalizeNumberInput(rawValue, fallback) {
+  const trimmed = String(rawValue ?? "").trim();
+  if (trimmed === "") {
+    return Number(fallback);
+  }
+  return Number(trimmed);
 }
 
 async function runAction(action) {

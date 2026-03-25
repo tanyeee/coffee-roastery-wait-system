@@ -56,10 +56,11 @@
 
         <section class="card">
           <h2 class="card-title">操作</h2>
-          <div class="button-grid">
+          <div class="button-grid operation-grid">
             <button id="add-order-button" class="button button-primary button-big">注文追加</button>
             <button id="cancel-order-button" class="button button-warning button-big">取消</button>
             <button id="complete-order-button" class="button button-secondary button-big">1件戻す</button>
+            <div class="button-spacer" aria-hidden="true"></div>
             <button id="open-reception-button" class="button button-success button-big">受付開始</button>
             <button id="close-reception-button" class="button button-danger button-big">受付終了</button>
           </div>
@@ -83,6 +84,7 @@
             </label>
             <button type="submit" class="button button-primary">設定を保存</button>
           </form>
+          <p id="current-settings-summary" class="settings-summary">現在設定: --</p>
         </section>
       </section>
     </main>
