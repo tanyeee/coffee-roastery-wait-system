@@ -1,4 +1,10 @@
 import {
+  auth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "./firebase-config.js";
+import {
   ensureInitialData,
   subscribeAll,
   calculateCurrentWaitMinutes,
@@ -13,58 +19,107 @@ import {
   saveSettings
 } from "./app.js";
 
+const authGate = document.getElementById("auth-gate");
 const pinGate = document.getElementById("pin-gate");
 const adminPanel = document.getElementById("admin-panel");
+
+const loginForm = document.getElementById("login-form");
+const emailInput = document.getElementById("email-input");
+const passwordInput = document.getElementById("password-input");
+const loginError = document.getElementById("login-error");
+
 const pinForm = document.getElementById("pin-form");
 const pinInput = document.getElementById("pin-input");
 const pinError = document.getElementById("pin-error");
+
 const actionMessage = document.getElementById("admin-action-message");
 
 const currentWaitEl = document.getElementById("admin-current-wait");
 const nextDecayEl = document.getElementById("admin-next-decay");
 const openStatusEl = document.getElementById("admin-open-status");
 const activeOrdersEl = document.getElementById("admin-active-orders");
-const currentSettingsSummaryEl = document.getElementById("current-settings-summary");
 
 const addOrderButton = document.getElementById("add-order-button");
 const cancelOrderButton = document.getElementById("cancel-order-button");
 const completeOrderButton = document.getElementById("complete-order-button");
 const openReceptionButton = document.getElementById("open-reception-button");
 const closeReceptionButton = document.getElementById("close-reception-button");
+const logoutButton = document.getElementById("logout-button");
 
 const settingsForm = document.getElementById("settings-form");
 const perOrderInput = document.getElementById("per-order-minutes");
 const decayLagInput = document.getElementById("decay-lag-minutes");
 const decayStepInput = document.getElementById("decay-step-minutes");
+const currentSettingsText = document.getElementById("current-settings-text");
 
 let latestData = null;
-let isAuthenticated = sessionStorage.getItem("roastery_admin_authenticated") === "true";
+let isFirebaseAuthenticated = false;
+let isPinAuthenticated = sessionStorage.getItem("roastery_admin_pin_authenticated") === "true";
 
 await ensureInitialData();
 
 subscribeAll((data) => {
   latestData = data;
-  if (isAuthenticated) {
+
+  if (isFirebaseAuthenticated && isPinAuthenticated) {
     renderAdmin(data);
+  }
+});
+
+onAuthStateChanged(auth, (user) => {
+  isFirebaseAuthenticated = !!user;
+
+  if (!isFirebaseAuthenticated) {
+    sessionStorage.removeItem("roastery_admin_pin_authenticated");
+    isPinAuthenticated = false;
+    showAuthGate();
+    return;
+  }
+
+  if (isPinAuthenticated) {
+    showAdminPanel();
+    if (latestData) {
+      renderAdmin(latestData);
+    }
+  } else {
+    showPinGate();
+  }
+});
+
+loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  loginError.textContent = "";
+
+  try {
+    await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+  } catch (error) {
+    loginError.textContent = "ログインに失敗しました。メールアドレスまたはパスワードを確認してください。";
   }
 });
 
 pinForm.addEventListener("submit", (event) => {
   event.preventDefault();
+
   if (!latestData) {
     pinError.textContent = "データの読み込み中です。";
     return;
   }
 
   if (pinInput.value === String(latestData.settings.pinCode || "")) {
-    isAuthenticated = true;
-    sessionStorage.setItem("roastery_admin_authenticated", "true");
+    isPinAuthenticated = true;
+    sessionStorage.setItem("roastery_admin_pin_authenticated", "true");
     pinError.textContent = "";
-    renderAuthenticatedState();
+    showAdminPanel();
     renderAdmin(latestData);
   } else {
     pinError.textContent = "PINが正しくありません。";
   }
+});
+
+logoutButton.addEventListener("click", async () => {
+  sessionStorage.removeItem("roastery_admin_pin_authenticated");
+  isPinAuthenticated = false;
+  await signOut(auth);
 });
 
 addOrderButton.addEventListener("click", async () => {
@@ -90,44 +145,45 @@ completeOrderButton.addEventListener("click", async () => {
 
 openReceptionButton.addEventListener("click", async () => {
   await runAction(async () => {
-    await setReceptionOpen(true, latestData.settings);
+    await setReceptionOpen(true);
     return "受付開始に切り替えました。";
   });
 });
 
 closeReceptionButton.addEventListener("click", async () => {
   await runAction(async () => {
-    await setReceptionOpen(false, latestData.settings);
+    await setReceptionOpen(false);
     return "受付終了に切り替えました。";
   });
 });
 
 settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+
   await runAction(async () => {
-    const current = latestData.settings;
-    const perOrderMinutes = normalizeNumberInput(perOrderInput.value, current.perOrderMinutes);
-    const decayLagMinutes = normalizeNumberInput(decayLagInput.value, current.decayLagMinutes);
-    const decayStepMinutes = normalizeNumberInput(decayStepInput.value, current.decayStepMinutes);
-
-    await saveSettings({
-      perOrderMinutes,
-      decayLagMinutes,
-      decayStepMinutes
+    await saveSettings(latestData.settings, {
+      perOrderMinutes: perOrderInput.value,
+      decayLagMinutes: decayLagInput.value,
+      decayStepMinutes: decayStepInput.value
     });
-
-    perOrderInput.value = "";
-    decayLagInput.value = "";
-    decayStepInput.value = "";
     return "設定を保存しました。";
   });
 });
 
-if (isAuthenticated) {
-  renderAuthenticatedState();
+function showAuthGate() {
+  authGate.classList.remove("hidden");
+  pinGate.classList.add("hidden");
+  adminPanel.classList.add("hidden");
 }
 
-function renderAuthenticatedState() {
+function showPinGate() {
+  authGate.classList.add("hidden");
+  pinGate.classList.remove("hidden");
+  adminPanel.classList.add("hidden");
+}
+
+function showAdminPanel() {
+  authGate.classList.add("hidden");
   pinGate.classList.add("hidden");
   adminPanel.classList.remove("hidden");
 }
@@ -147,20 +203,20 @@ function renderAdmin(data) {
   decayLagInput.placeholder = String(data.settings.decayLagMinutes);
   decayStepInput.placeholder = String(data.settings.decayStepMinutes);
 
-  currentSettingsSummaryEl.textContent = `現在設定: 1件あたり${data.settings.perOrderMinutes}分 / ラグ${data.settings.decayLagMinutes}分 / 刻み${data.settings.decayStepMinutes}分`;
-}
+  perOrderInput.value = "";
+  decayLagInput.value = "";
+  decayStepInput.value = "";
 
-function normalizeNumberInput(rawValue, fallback) {
-  const trimmed = String(rawValue ?? "").trim();
-  if (trimmed === "") {
-    return Number(fallback);
-  }
-  return Number(trimmed);
+  currentSettingsText.textContent =
+    `現在設定: 加算 ${data.settings.perOrderMinutes}分 / ` +
+    `ラグ ${data.settings.decayLagMinutes}分 / ` +
+    `刻み ${data.settings.decayStepMinutes}分`;
 }
 
 async function runAction(action) {
   actionMessage.textContent = "処理中...";
   setButtonsDisabled(true);
+
   try {
     const message = await action();
     actionMessage.textContent = message;
@@ -177,7 +233,8 @@ function setButtonsDisabled(disabled) {
     cancelOrderButton,
     completeOrderButton,
     openReceptionButton,
-    closeReceptionButton
+    closeReceptionButton,
+    logoutButton
   ].forEach((button) => {
     button.disabled = disabled;
   });

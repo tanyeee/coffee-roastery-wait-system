@@ -369,3 +369,8 @@ body {
     padding: 20px 16px;
   }
 }
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}

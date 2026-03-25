@@ -8,44 +8,75 @@
   </head>
   <body>
     <main class="page history-page">
-      <header class="page-header">
-        <div>
-          <p class="eyebrow">HISTORY</p>
-          <h1 class="section-title">今日の操作履歴</h1>
-        </div>
-        <a class="button button-secondary" href="./admin.html">管理画面へ戻る</a>
-      </header>
+      <section id="history-auth-gate" class="card auth-card">
+        <p class="eyebrow">HISTORY LOGIN</p>
+        <h1 class="section-title">履歴画面ログイン</h1>
+        <p class="section-description">Firebase Authentication でログインしてください。</p>
 
-      <section class="stats-grid compact-grid">
-        <article class="card stat-card">
-          <p class="stat-label">今日の総受注件数</p>
-          <p id="history-total-orders" class="stat-value stat-value-small">--</p>
-        </article>
+        <form id="history-login-form" class="pin-form">
+          <input
+            id="history-email-input"
+            class="input"
+            type="email"
+            placeholder="メールアドレス"
+            autocomplete="username"
+          />
+          <input
+            id="history-password-input"
+            class="input"
+            type="password"
+            placeholder="パスワード"
+            autocomplete="current-password"
+          />
+          <button type="submit" class="button button-primary">ログイン</button>
+        </form>
 
-        <article class="card stat-card">
-          <p class="stat-label">現在の有効件数</p>
-          <p id="history-active-orders" class="stat-value stat-value-small">--</p>
-        </article>
+        <p id="history-login-error" class="error-message"></p>
       </section>
 
-      <section class="card">
-        <h2 class="card-title">操作履歴一覧</h2>
-        <div class="table-wrap">
-          <table class="history-table">
-            <thead>
-              <tr>
-                <th>時刻</th>
-                <th>操作</th>
-                <th>対象注文ID</th>
-              </tr>
-            </thead>
-            <tbody id="history-table-body">
-              <tr>
-                <td colspan="3" class="empty-cell">読み込み中...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <section id="history-panel" class="hidden">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">HISTORY</p>
+            <h1 class="section-title">今日の操作履歴</h1>
+          </div>
+          <div class="header-actions">
+            <a class="button button-secondary" href="./admin.html">管理画面へ戻る</a>
+            <button id="history-logout-button" class="button button-danger" type="button">ログアウト</button>
+          </div>
+        </header>
+
+        <section class="stats-grid compact-grid">
+          <article class="card stat-card">
+            <p class="stat-label">今日の総受注件数</p>
+            <p id="history-total-orders" class="stat-value stat-value-small">--</p>
+          </article>
+
+          <article class="card stat-card">
+            <p class="stat-label">現在の有効件数</p>
+            <p id="history-active-orders" class="stat-value stat-value-small">--</p>
+          </article>
+        </section>
+
+        <section class="card">
+          <h2 class="card-title">操作履歴一覧</h2>
+          <div class="table-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>時刻</th>
+                  <th>操作</th>
+                  <th>対象注文ID</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body">
+                <tr>
+                  <td colspan="3" class="empty-cell">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
     </main>
 

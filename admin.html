@@ -8,10 +8,37 @@
   </head>
   <body>
     <main class="page admin-page">
-      <section id="pin-gate" class="card auth-card">
-        <p class="eyebrow">MANAGEMENT</p>
-        <h1 class="section-title">管理画面</h1>
+      <section id="auth-gate" class="card auth-card">
+        <p class="eyebrow">MANAGEMENT LOGIN</p>
+        <h1 class="section-title">管理者ログイン</h1>
+        <p class="section-description">Firebase Authentication でログインしてください。</p>
+
+        <form id="login-form" class="pin-form">
+          <input
+            id="email-input"
+            class="input"
+            type="email"
+            placeholder="メールアドレス"
+            autocomplete="username"
+          />
+          <input
+            id="password-input"
+            class="input"
+            type="password"
+            placeholder="パスワード"
+            autocomplete="current-password"
+          />
+          <button type="submit" class="button button-primary">ログイン</button>
+        </form>
+
+        <p id="login-error" class="error-message"></p>
+      </section>
+
+      <section id="pin-gate" class="card auth-card hidden">
+        <p class="eyebrow">MANAGEMENT PIN</p>
+        <h1 class="section-title">PIN確認</h1>
         <p class="section-description">4桁のPINを入力してください。</p>
+
         <form id="pin-form" class="pin-form">
           <input
             id="pin-input"
@@ -24,6 +51,7 @@
           />
           <button type="submit" class="button button-primary">入室</button>
         </form>
+
         <p id="pin-error" class="error-message"></p>
       </section>
 
@@ -33,10 +61,13 @@
             <p class="eyebrow">MANAGEMENT</p>
             <h1 class="section-title">焙煎待ち時間 管理画面</h1>
           </div>
-          <a class="button button-secondary" href="./history.html">履歴画面へ</a>
+          <div class="header-actions">
+            <a class="button button-secondary" href="./history.html">履歴画面へ</a>
+            <button id="logout-button" class="button button-danger" type="button">ログアウト</button>
+          </div>
         </header>
 
-        <section class="stats-grid admin-stats-grid">
+        <section class="stats-grid compact-grid">
           <article class="card stat-card stat-card-large">
             <p class="stat-label">現在の焙煎待ち時間</p>
             <p id="admin-current-wait" class="stat-value">--</p>
@@ -56,11 +87,11 @@
 
         <section class="card">
           <h2 class="card-title">操作</h2>
-          <div class="button-grid operation-grid">
+          <div class="button-grid">
             <button id="add-order-button" class="button button-primary button-big">注文追加</button>
             <button id="cancel-order-button" class="button button-warning button-big">取消</button>
             <button id="complete-order-button" class="button button-secondary button-big">1件戻す</button>
-            <div class="button-spacer" aria-hidden="true"></div>
+            <span></span>
             <button id="open-reception-button" class="button button-success button-big">受付開始</button>
             <button id="close-reception-button" class="button button-danger button-big">受付終了</button>
           </div>
@@ -69,7 +100,7 @@
 
         <section class="card">
           <h2 class="card-title">設定</h2>
-          <form id="settings-form" class="settings-form settings-form-compact">
+          <form id="settings-form" class="settings-form">
             <label class="field">
               <span class="field-label">1件あたり加算時間（分）</span>
               <input id="per-order-minutes" class="input" type="number" min="1" step="1" />
@@ -84,7 +115,7 @@
             </label>
             <button type="submit" class="button button-primary">設定を保存</button>
           </form>
-          <p id="current-settings-summary" class="settings-summary">現在設定: --</p>
+          <p id="current-settings-text" class="action-message"></p>
         </section>
       </section>
     </main>
