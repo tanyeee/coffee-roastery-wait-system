@@ -73,8 +73,11 @@ onAuthStateChanged(auth, (user) => {
     sessionStorage.removeItem("roastery_admin_pin_authenticated");
     isPinAuthenticated = false;
     showAuthGate();
+    loginError.textContent = "未ログインです。";
     return;
   }
+
+  loginError.textContent = `ログインできました。(${user.email})`;
 
   if (isPinAuthenticated) {
     showAdminPanel();
@@ -88,12 +91,21 @@ onAuthStateChanged(auth, (user) => {
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  loginError.textContent = "";
+  loginError.textContent = "ログイン処理中です...";
+  setLoginDisabled(true);
 
   try {
-    await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+    const credential = await signInWithEmailAndPassword(
+      auth,
+      emailInput.value.trim(),
+      passwordInput.value
+    );
+    loginError.textContent = `ログインできました。(${credential.user.email})`;
   } catch (error) {
-    loginError.textContent = "ログインに失敗しました。メールアドレスまたはパスワードを確認してください。";
+    console.error(error);
+    loginError.textContent = "ログインできませんでした。メールアドレスまたはパスワードを確認してください。";
+  } finally {
+    setLoginDisabled(false);
   }
 });
 
@@ -108,11 +120,11 @@ pinForm.addEventListener("submit", (event) => {
   if (pinInput.value === String(latestData.settings.pinCode || "")) {
     isPinAuthenticated = true;
     sessionStorage.setItem("roastery_admin_pin_authenticated", "true");
-    pinError.textContent = "";
+    pinError.textContent = "PIN認証できました。";
     showAdminPanel();
     renderAdmin(latestData);
   } else {
-    pinError.textContent = "PINが正しくありません。";
+    pinError.textContent = "PIN認証できませんでした。";
   }
 });
 
@@ -221,6 +233,7 @@ async function runAction(action) {
     const message = await action();
     actionMessage.textContent = message;
   } catch (error) {
+    console.error(error);
     actionMessage.textContent = error.message || "エラーが発生しました。";
   } finally {
     setButtonsDisabled(false);
@@ -238,4 +251,10 @@ function setButtonsDisabled(disabled) {
   ].forEach((button) => {
     button.disabled = disabled;
   });
+}
+
+function setLoginDisabled(disabled) {
+  emailInput.disabled = disabled;
+  passwordInput.disabled = disabled;
+  loginForm.querySelector("button[type='submit']").disabled = disabled;
 }

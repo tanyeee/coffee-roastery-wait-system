@@ -62,9 +62,11 @@ subscribeAll((data) => {
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
+    loginError.textContent = `ログインできました。(${user.email})`;
     authGate.classList.add("hidden");
     historyPanel.classList.remove("hidden");
   } else {
+    loginError.textContent = "未ログインです。";
     authGate.classList.remove("hidden");
     historyPanel.classList.add("hidden");
   }
@@ -72,12 +74,21 @@ onAuthStateChanged(auth, (user) => {
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  loginError.textContent = "";
+  loginError.textContent = "ログイン処理中です...";
+  setLoginDisabled(true);
 
   try {
-    await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+    const credential = await signInWithEmailAndPassword(
+      auth,
+      emailInput.value.trim(),
+      passwordInput.value
+    );
+    loginError.textContent = `ログインできました。(${credential.user.email})`;
   } catch (error) {
-    loginError.textContent = "ログインに失敗しました。メールアドレスまたはパスワードを確認してください。";
+    console.error(error);
+    loginError.textContent = "ログインできませんでした。メールアドレスまたはパスワードを確認してください。";
+  } finally {
+    setLoginDisabled(false);
   }
 });
 
@@ -85,3 +96,9 @@ logoutButton.addEventListener("click", async () => {
   sessionStorage.removeItem("roastery_admin_pin_authenticated");
   await signOut(auth);
 });
+
+function setLoginDisabled(disabled) {
+  emailInput.disabled = disabled;
+  passwordInput.disabled = disabled;
+  loginForm.querySelector("button[type='submit']").disabled = disabled;
+}
