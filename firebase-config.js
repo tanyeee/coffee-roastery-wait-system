@@ -12,7 +12,7 @@ import {
 const firebaseConfig = {
   apiKey: "AIzaSyA4X4s8rG1i62Fe8ypxG29x3ReXSwwGAEo",
   authDomain: "coffeeroastery-fefa7.firebaseapp.com",
-  databaseURL: "https://coffeeroastery-fefa7-default-rtdb.firebaseio.com",
+  databaseURL: "https://coffeeroastery-fefa7-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "coffeeroastery-fefa7",
   storageBucket: "coffeeroastery-fefa7.firebasestorage.app",
   messagingSenderId: "854048573547",
