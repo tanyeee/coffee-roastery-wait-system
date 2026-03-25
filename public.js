@@ -11,13 +11,24 @@ const waitTime = document.getElementById("public-wait-time");
 const statusSubtitle = document.getElementById("public-status-subtitle");
 const lastUpdated = document.getElementById("public-last-updated");
 
+let latestData = null;
+
 await ensureInitialData();
 
 subscribeAll((data) => {
-  const now = Date.now();
-  const minutes = calculateCurrentWaitMinutes(data.orders, data.settings, now);
+  latestData = data;
+  renderPublic();
+});
 
-  if (!data.settings.isOpen) {
+function renderPublic() {
+  if (!latestData) {
+    return;
+  }
+
+  const now = Date.now();
+  const minutes = calculateCurrentWaitMinutes(latestData.orders, latestData.settings, now);
+
+  if (!latestData.settings.isOpen) {
     statusTitle.textContent = "本日の受付は終了しました";
     waitTime.textContent = "";
     statusSubtitle.textContent = "営業時間内に更新されます。";
@@ -32,4 +43,9 @@ subscribeAll((data) => {
   }
 
   lastUpdated.textContent = `最終更新: ${formatDateTime(now)}`;
-});
+}
+
+// 1分ごとにローカルで再描画
+setInterval(() => {
+  renderPublic();
+}, 60 * 1000);

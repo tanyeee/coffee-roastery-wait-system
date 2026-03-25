@@ -8,6 +8,7 @@ import {
   ensureInitialData,
   subscribeAll,
   calculateCurrentWaitMinutes,
+  calculateOrderRemainingMinutes,
   getActiveOrders,
   findNextDecayTime,
   formatMinutesLabel,
@@ -204,12 +205,18 @@ function renderAdmin(data) {
   const now = Date.now();
   const waitMinutes = calculateCurrentWaitMinutes(data.orders, data.settings, now);
   const activeOrders = getActiveOrders(data.orders);
+
+  // 表示上の有効件数は、残り時間がまだある注文だけ数える
+  const effectiveActiveOrdersCount = activeOrders.filter(([, order]) => {
+    return calculateOrderRemainingMinutes(order, data.settings, now) > 0;
+  }).length;
+
   const nextDecayTime = findNextDecayTime(data.orders, data.settings, now);
 
   currentWaitEl.textContent = waitMinutes > 0 ? formatMinutesLabel(waitMinutes) : "0分";
   nextDecayEl.textContent = `次の自動減少目安: ${nextDecayTime ? formatTime(nextDecayTime) : "なし"}`;
   openStatusEl.textContent = data.settings.isOpen ? "受付中" : "受付終了";
-  activeOrdersEl.textContent = String(activeOrders.length);
+  activeOrdersEl.textContent = String(effectiveActiveOrdersCount);
 
   perOrderInput.placeholder = String(data.settings.perOrderMinutes);
   decayLagInput.placeholder = String(data.settings.decayLagMinutes);
@@ -258,3 +265,10 @@ function setLoginDisabled(disabled) {
   passwordInput.disabled = disabled;
   loginForm.querySelector("button[type='submit']").disabled = disabled;
 }
+
+// 1分ごとにローカルで再描画
+setInterval(() => {
+  if (latestData && isFirebaseAuthenticated && isPinAuthenticated) {
+    renderAdmin(latestData);
+  }
+}, 60 * 1000);
