@@ -5,9 +5,10 @@ export const DEFAULT_SETTINGS = {
   decayLagMinutes: 5,
   decayStepMinutes: 5,
   isOpen: true,
-  pinCode: "1234",
-  autoCloseHour: 19
+  pinCode: "1234"
 };
+
+const AUTO_CLOSE_HOUR = 19;
 
 export function subscribeAll(callback) {
   const rootRef = ref(db, "/");
@@ -19,7 +20,7 @@ export function subscribeAll(callback) {
       logs: data.logs || {}
     };
 
-    await enforceAutoCloseIfNeeded(normalized);
+    await enforceAutoCloseIfNeeded(normalized.settings);
     callback(normalized);
   });
 }
@@ -28,44 +29,15 @@ export async function ensureInitialData() {
   const snapshot = await get(ref(db, "/settings"));
   if (!snapshot.exists()) {
     await set(ref(db, "/settings"), DEFAULT_SETTINGS);
-    return;
-  }
-
-  const current = snapshot.val() || {};
-  const next = { ...DEFAULT_SETTINGS, ...current };
-  const needsUpdate = Object.keys(DEFAULT_SETTINGS).some((key) => !(key in current));
-  if (needsUpdate) {
-    await update(ref(db, "/settings"), next);
   }
 }
 
-async function enforceAutoCloseIfNeeded(data) {
-  if (!shouldForceClose(data.settings)) {
-    return;
+async function enforceAutoCloseIfNeeded(settings) {
+  const now = new Date();
+  if (now.getHours() >= AUTO_CLOSE_HOUR && settings.isOpen) {
+    await update(ref(db, "/settings"), { isOpen: false });
+    await writeLog("close_reception", null, Date.now());
   }
-
-  const hasCloseLogToday = getTodayLogs(data.logs).some((log) => log.type === "close_reception");
-  const updates = {
-    "/settings/isOpen": false
-  };
-
-  if (!hasCloseLogToday) {
-    const logRef = push(ref(db, "/logs"));
-    updates[`/logs/${logRef.key}`] = {
-      type: "close_reception",
-      targetOrderId: null,
-      timestamp: Date.now(),
-      reason: "auto_close"
-    };
-  }
-
-  await update(ref(db), updates);
-}
-
-function shouldForceClose(settings, now = new Date()) {
-  const autoCloseHour = Number(settings.autoCloseHour ?? DEFAULT_SETTINGS.autoCloseHour);
-  const isOpen = Boolean(settings.isOpen);
-  return isOpen && now.getHours() >= autoCloseHour;
 }
 
 export function calculateOrderRemainingMinutes(order, settings, now = Date.now()) {
@@ -74,16 +46,20 @@ export function calculateOrderRemainingMinutes(order, settings, now = Date.now()
   }
 
   const perOrderMinutes = Number(settings.perOrderMinutes) || DEFAULT_SETTINGS.perOrderMinutes;
-  const decayLagMinutes = Number(settings.decayLagMinutes) || DEFAULT_SETTINGS.decayLagMinutes;
+  const decayLagMinutes = Number(settings.decayLagMinutes ?? DEFAULT_SETTINGS.decayLagMinutes);
   const decayStepMinutes = Number(settings.decayStepMinutes) || DEFAULT_SETTINGS.decayStepMinutes;
-  const elapsedMs = Math.max(0, now - Number(order.createdAt || 0));
-  const effectiveElapsedMs = elapsedMs - decayLagMinutes * 60 * 1000;
 
-  if (effectiveElapsedMs <= 0) {
-    return perOrderMinutes;
+  const elapsedMs = Math.max(0, now - Number(order.createdAt || 0));
+  const lagMs = decayLagMinutes * 60 * 1000;
+  const stepMs = decayStepMinutes * 60 * 1000;
+
+  let decreaseSteps = 0;
+
+  if (elapsedMs >= lagMs) {
+    const afterLagMs = elapsedMs - lagMs;
+    decreaseSteps = Math.floor(afterLagMs / stepMs) + 1;
   }
 
-  const decreaseSteps = Math.floor(effectiveElapsedMs / (decayStepMinutes * 60 * 1000)) + 1;
   const remaining = perOrderMinutes - decreaseSteps * decayStepMinutes;
   return Math.max(0, remaining);
 }
@@ -169,23 +145,21 @@ export function findNextDecayTime(orders = {}, settings = {}, now = Date.now()) 
 function buildDecayTimes(order, settings) {
   const createdAt = Number(order.createdAt || 0);
   const perOrderMinutes = Number(settings.perOrderMinutes) || DEFAULT_SETTINGS.perOrderMinutes;
-  const decayLagMinutes = Number(settings.decayLagMinutes) || DEFAULT_SETTINGS.decayLagMinutes;
+  const decayLagMinutes = Number(settings.decayLagMinutes ?? DEFAULT_SETTINGS.decayLagMinutes);
   const decayStepMinutes = Number(settings.decayStepMinutes) || DEFAULT_SETTINGS.decayStepMinutes;
+
   const steps = Math.ceil(perOrderMinutes / decayStepMinutes);
 
   return Array.from({ length: steps }, (_, index) => {
-    const minutesFromStart = decayLagMinutes + decayStepMinutes * index;
+    const minutesFromStart =
+      decayLagMinutes + Math.max(0, index) * decayStepMinutes;
     return createdAt + minutesFromStart * 60 * 1000;
   });
 }
 
-export async function addOrder(settings) {
-  if (!settings?.isOpen) {
+export async function addOrder(settings = DEFAULT_SETTINGS) {
+  if (!settings.isOpen) {
     throw new Error("受付を開始してください。");
-  }
-
-  if (shouldForceClose(settings)) {
-    throw new Error("現在は受付終了時刻を過ぎています。受付は終了しています。");
   }
 
   const orderRef = push(ref(db, "/orders"));
@@ -230,21 +204,38 @@ export async function completeOldestActiveOrder(orders) {
   return orderId;
 }
 
-export async function setReceptionOpen(isOpen, currentSettings = DEFAULT_SETTINGS) {
-  if (isOpen && shouldForceClose({ ...DEFAULT_SETTINGS, ...currentSettings, isOpen: true })) {
+export async function setReceptionOpen(isOpen, settings = DEFAULT_SETTINGS) {
+  const now = new Date();
+  const timestamp = now.getTime();
+
+  if (isOpen && now.getHours() >= AUTO_CLOSE_HOUR) {
     throw new Error("19時以降は受付開始できません。");
   }
 
-  const timestamp = Date.now();
   await update(ref(db, "/settings"), { isOpen });
   await writeLog(isOpen ? "open_reception" : "close_reception", null, timestamp);
 }
 
-export async function saveSettings(nextSettings) {
+export async function saveSettings(currentSettings, nextSettings) {
+  const perOrderMinutes =
+    nextSettings.perOrderMinutes === "" || nextSettings.perOrderMinutes == null
+      ? Number(currentSettings.perOrderMinutes)
+      : Number(nextSettings.perOrderMinutes);
+
+  const decayLagMinutes =
+    nextSettings.decayLagMinutes === "" || nextSettings.decayLagMinutes == null
+      ? Number(currentSettings.decayLagMinutes)
+      : Number(nextSettings.decayLagMinutes);
+
+  const decayStepMinutes =
+    nextSettings.decayStepMinutes === "" || nextSettings.decayStepMinutes == null
+      ? Number(currentSettings.decayStepMinutes)
+      : Number(nextSettings.decayStepMinutes);
+
   await update(ref(db, "/settings"), {
-    perOrderMinutes: Number(nextSettings.perOrderMinutes),
-    decayLagMinutes: Number(nextSettings.decayLagMinutes),
-    decayStepMinutes: Number(nextSettings.decayStepMinutes)
+    perOrderMinutes,
+    decayLagMinutes,
+    decayStepMinutes
   });
 }
 
