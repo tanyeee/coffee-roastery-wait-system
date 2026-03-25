@@ -1,0 +1,55 @@
+{
+  "settings": {
+    "perOrderMinutes": 15,
+    "decayLagMinutes": 5,
+    "decayStepMinutes": 5,
+    "isOpen": true,
+    "pinCode": "1234"
+  },
+  "orders": {
+    "order_001": {
+      "createdAt": 1774400400000,
+      "status": "active"
+    },
+    "order_002": {
+      "createdAt": 1774400700000,
+      "status": "completed"
+    },
+    "order_003": {
+      "createdAt": 1774401000000,
+      "status": "cancelled"
+    }
+  },
+  "logs": {
+    "log_001": {
+      "type": "open_reception",
+      "timestamp": 1774396800000,
+      "targetOrderId": null
+    },
+    "log_002": {
+      "type": "add_order",
+      "timestamp": 1774400400000,
+      "targetOrderId": "order_001"
+    },
+    "log_003": {
+      "type": "add_order",
+      "timestamp": 1774400700000,
+      "targetOrderId": "order_002"
+    },
+    "log_004": {
+      "type": "complete_order",
+      "timestamp": 1774401300000,
+      "targetOrderId": "order_002"
+    },
+    "log_005": {
+      "type": "add_order",
+      "timestamp": 1774401000000,
+      "targetOrderId": "order_003"
+    },
+    "log_006": {
+      "type": "cancel_order",
+      "timestamp": 1774401060000,
+      "targetOrderId": "order_003"
+    }
+  }
+}
