@@ -3,17 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>焙煎待ち時間</title>
+    <title>ご案内状況</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body class="public-body">
     <main class="page public-page">
       <section class="card public-card">
-        <p class="eyebrow">フジタコーヒー焙煎所 焙煎待ち時間</p>
+        <p class="eyebrow">フジタコーヒー焙煎所 ご案内</p>
 
-        <h1 id="public-status-title" class="public-status-title">
-          読み込み中...
-        </h1>
+        <h1 id="public-status-title" class="public-status-title">読み込み中...</h1>
 
         <p id="public-wait-time" class="public-wait-time">--</p>
 
@@ -21,10 +19,9 @@
 
         <div class="divider"></div>
 
-        <p class="public-note">ご注文後に焙煎します</p>
-        <p class="public-note subtle">
-          待ち時間はあくまで目安であり、店頭混雑や豆の種類で前後します
-        </p>
+        <p id="public-order-guide" class="public-note"></p>
+        <p id="public-finish-guide" class="public-note subtle"></p>
+        <p id="public-caution" class="public-note subtle"></p>
 
         <p id="public-last-updated" class="timestamp"></p>
       </section>
