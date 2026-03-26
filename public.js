@@ -49,7 +49,7 @@ function renderPublic() {
     waitTime.textContent = "すぐにご案内できます";
     statusSubtitle.textContent = "";
     orderGuide.textContent = "今ご注文いただくと、すぐに焙煎を開始できます";
-    finishGuide.textContent = "焙煎開始後、出来上がりまでさらに約15分ほどかかります";
+    finishGuide.textContent = "焙煎開始後、出来上がりまで更に約15分ほどかかります";
     caution.textContent = "混雑状況や豆の種類により前後する場合があります";
   }
 
