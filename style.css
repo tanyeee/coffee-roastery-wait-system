@@ -36,10 +36,13 @@ body {
 }
 
 .public-page {
+  width: 100%;
+  max-width: none;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: clamp(20px, 4vw, 56px);
 }
 
 .card {
@@ -50,8 +53,8 @@ body {
 }
 
 .public-card {
-  width: min(100%, 560px);
-  padding: 28px 24px;
+  width: min(1100px, calc(100vw - 2 * clamp(20px, 4vw, 56px)));
+  padding: clamp(24px, 4vw, 42px);
   text-align: center;
 }
 
@@ -59,23 +62,24 @@ body {
   margin: 0 0 8px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   color: var(--muted);
 }
 
 .public-status-title,
 .section-title {
   margin: 0;
-  font-size: clamp(28px, 4vw, 40px);
-  line-height: 1.25;
+  font-size: clamp(28px, 5vw, 56px);
+  line-height: 1.2;
 }
 
 .public-wait-time {
   margin: 20px 0 10px;
-  font-size: clamp(44px, 10vw, 76px);
-  line-height: 1;
+  font-size: clamp(52px, 10vw, 110px);
+  line-height: 1.02;
   font-weight: 800;
   color: var(--primary);
+  word-break: keep-all;
 }
 
 .public-status-subtitle {
@@ -103,17 +107,18 @@ body {
 }
 
 .public-note {
-  margin: 8px 0;
-  font-size: 16px;
+  margin: 10px 0;
+  font-size: clamp(18px, 2vw, 24px);
+  line-height: 1.5;
 }
 
 .subtle {
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .timestamp {
   margin: 16px 0 0;
-  font-size: 13px;
+  font-size: clamp(14px, 1.6vw, 18px);
 }
 
 .page-header {
@@ -218,10 +223,6 @@ body {
   gap: 16px;
 }
 
-.admin-stats-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .compact-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -270,23 +271,9 @@ body {
   font-size: 14px;
 }
 
-.button-spacer {
-  min-height: 56px;
-}
-
-.settings-summary {
-  margin: 12px 0 0;
-  font-size: 14px;
-  color: var(--muted);
-}
-
 .settings-form {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
-}
-
-.settings-form-compact {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .field {
@@ -322,11 +309,15 @@ body {
   color: var(--muted);
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 900px) {
   .stats-grid,
-  .admin-stats-grid,
-  .settings-form,
-  .settings-form-compact {
+  .settings-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -346,20 +337,18 @@ body {
   }
 
   .stats-grid,
-  .admin-stats-grid,
   .compact-grid,
   .settings-form,
-  .settings-form-compact,
   .button-grid {
     grid-template-columns: 1fr;
   }
 
-  .button-spacer {
-    display: none;
-  }
-
   .stat-card-large {
     grid-column: span 1;
+  }
+
+  .public-page {
+    padding: 20px;
   }
 
   .public-card,
@@ -368,9 +357,39 @@ body {
   .card {
     padding: 20px 16px;
   }
+
+  .public-note {
+    font-size: 16px;
+  }
+
+  .timestamp {
+    font-size: 14px;
+  }
 }
-.header-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+
+@media (orientation: landscape) and (max-height: 900px) {
+  .public-page {
+    padding: 24px;
+  }
+
+  .public-card {
+    width: min(1200px, calc(100vw - 48px));
+    padding: 28px 32px;
+  }
+
+  .public-status-title {
+    font-size: clamp(30px, 4vw, 52px);
+  }
+
+  .public-wait-time {
+    font-size: clamp(58px, 9vw, 108px);
+  }
+
+  .public-note {
+    font-size: clamp(16px, 1.8vw, 22px);
+  }
+
+  .timestamp {
+    font-size: clamp(13px, 1.4vw, 16px);
+  }
 }

@@ -15,9 +15,9 @@ import {
   formatTime,
   addOrder,
   cancelLatestActiveOrder,
-  completeOldestActiveOrder,
   setReceptionOpen,
-  saveSettings
+  saveSettings,
+  adjustManualWaitMinutes
 } from "./app.js";
 
 const authGate = document.getElementById("auth-gate");
@@ -42,7 +42,8 @@ const activeOrdersEl = document.getElementById("admin-active-orders");
 
 const addOrderButton = document.getElementById("add-order-button");
 const cancelOrderButton = document.getElementById("cancel-order-button");
-const completeOrderButton = document.getElementById("complete-order-button");
+const minusOneMinuteButton = document.getElementById("minus-one-minute-button");
+const plusOneMinuteButton = document.getElementById("plus-one-minute-button");
 const openReceptionButton = document.getElementById("open-reception-button");
 const closeReceptionButton = document.getElementById("close-reception-button");
 const logoutButton = document.getElementById("logout-button");
@@ -149,10 +150,17 @@ cancelOrderButton.addEventListener("click", async () => {
   });
 });
 
-completeOrderButton.addEventListener("click", async () => {
+minusOneMinuteButton.addEventListener("click", async () => {
   await runAction(async () => {
-    const orderId = await completeOldestActiveOrder(latestData.orders);
-    return `最も古い有効注文を完了扱いにしました。(${orderId})`;
+    const nextValue = await adjustManualWaitMinutes(-1, latestData.settings);
+    return `待ち時間を1分減らしました。現在の手動補正: ${nextValue}分`;
+  });
+});
+
+plusOneMinuteButton.addEventListener("click", async () => {
+  await runAction(async () => {
+    const nextValue = await adjustManualWaitMinutes(1, latestData.settings);
+    return `待ち時間を1分増やしました。現在の手動補正: ${nextValue}分`;
   });
 });
 
@@ -206,7 +214,6 @@ function renderAdmin(data) {
   const waitMinutes = calculateCurrentWaitMinutes(data.orders, data.settings, now);
   const activeOrders = getActiveOrders(data.orders);
 
-  // 表示上の有効件数は、残り時間がまだある注文だけ数える
   const effectiveActiveOrdersCount = activeOrders.filter(([, order]) => {
     return calculateOrderRemainingMinutes(order, data.settings, now) > 0;
   }).length;
@@ -229,7 +236,8 @@ function renderAdmin(data) {
   currentSettingsText.textContent =
     `現在設定: 加算 ${data.settings.perOrderMinutes}分 / ` +
     `ラグ ${data.settings.decayLagMinutes}分 / ` +
-    `刻み ${data.settings.decayStepMinutes}分`;
+    `刻み ${data.settings.decayStepMinutes}分 / ` +
+    `手動補正 ${Number(data.settings.manualAdjustMinutes || 0)}分`;
 }
 
 async function runAction(action) {
@@ -251,7 +259,8 @@ function setButtonsDisabled(disabled) {
   [
     addOrderButton,
     cancelOrderButton,
-    completeOrderButton,
+    minusOneMinuteButton,
+    plusOneMinuteButton,
     openReceptionButton,
     closeReceptionButton,
     logoutButton
@@ -266,7 +275,6 @@ function setLoginDisabled(disabled) {
   loginForm.querySelector("button[type='submit']").disabled = disabled;
 }
 
-// 1分ごとにローカルで再描画
 setInterval(() => {
   if (latestData && isFirebaseAuthenticated && isPinAuthenticated) {
     renderAdmin(latestData);

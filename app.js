@@ -5,7 +5,8 @@ export const DEFAULT_SETTINGS = {
   decayLagMinutes: 5,
   decayStepMinutes: 5,
   isOpen: true,
-  pinCode: "1234"
+  pinCode: "1234",
+  manualAdjustMinutes: 0
 };
 
 const AUTO_CLOSE_HOUR = 19;
@@ -65,9 +66,12 @@ export function calculateOrderRemainingMinutes(order, settings, now = Date.now()
 }
 
 export function calculateCurrentWaitMinutes(orders, settings, now = Date.now()) {
-  return Object.values(orders || {}).reduce((sum, order) => {
+  const orderMinutes = Object.values(orders || {}).reduce((sum, order) => {
     return sum + calculateOrderRemainingMinutes(order, settings, now);
   }, 0);
+
+  const manualAdjust = Number(settings.manualAdjustMinutes || 0);
+  return Math.max(0, orderMinutes + manualAdjust);
 }
 
 export function getActiveOrders(orders = {}) {
@@ -190,19 +194,6 @@ export async function cancelLatestActiveOrder(orders, settings) {
   return orderId;
 }
 
-export async function completeOldestActiveOrder(orders) {
-  const activeOrders = getActiveOrders(orders);
-  if (!activeOrders.length) {
-    throw new Error("完了扱いにできる有効注文がありません。");
-  }
-
-  const [orderId] = activeOrders[0];
-  const timestamp = Date.now();
-  await update(ref(db, `/orders/${orderId}`), { status: "completed" });
-  await writeLog("complete_order", orderId, timestamp);
-  return orderId;
-}
-
 export async function setReceptionOpen(isOpen) {
   const now = new Date();
   const timestamp = now.getTime();
@@ -249,6 +240,18 @@ export async function saveSettings(arg1, arg2) {
   });
 }
 
+export async function adjustManualWaitMinutes(delta, settings = DEFAULT_SETTINGS) {
+  const current = Number(settings.manualAdjustMinutes || 0);
+  const next = Math.max(0, current + delta);
+
+  await update(ref(db, "/settings"), {
+    manualAdjustMinutes: next
+  });
+
+  await writeLog(delta > 0 ? "manual_adjust_plus" : "manual_adjust_minus", null, Date.now());
+  return next;
+}
+
 async function writeLog(type, targetOrderId = null, timestamp = Date.now()) {
   const logRef = push(ref(db, "/logs"));
   await set(logRef, {
@@ -264,7 +267,9 @@ export function getLogTypeLabel(type) {
     cancel_order: "取消",
     complete_order: "1件戻す",
     open_reception: "受付開始",
-    close_reception: "受付終了"
+    close_reception: "受付終了",
+    manual_adjust_plus: "1分増やす",
+    manual_adjust_minus: "1分減らす"
   };
 
   return labels[type] || type;
