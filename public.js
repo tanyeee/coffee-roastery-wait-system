@@ -56,7 +56,6 @@ function renderPublic() {
   lastUpdated.textContent = `最終更新: ${formatDateTime(now)}`;
 }
 
-// 1分ごとにローカルで再描画
 setInterval(() => {
   renderPublic();
 }, 60 * 1000);
