@@ -1,7 +1,7 @@
 import {
   ensureInitialData,
-  subscribeAll,
-  calculateCurrentWaitMinutes,
+  subscribePublicStatus,
+  calculateDisplayedWaitFromPublicStatus,
   formatDateTime
 } from "./app.js";
 
@@ -13,24 +13,24 @@ const finishGuide = document.getElementById("public-finish-guide");
 const caution = document.getElementById("public-caution");
 const lastUpdated = document.getElementById("public-last-updated");
 
-let latestData = null;
+let latestPublicStatus = null;
 
 await ensureInitialData();
 
-subscribeAll((data) => {
-  latestData = data;
+subscribePublicStatus((publicStatus) => {
+  latestPublicStatus = publicStatus;
   renderPublic();
 });
 
 function renderPublic() {
-  if (!latestData) {
+  if (!latestPublicStatus) {
     return;
   }
 
   const now = Date.now();
-  const minutes = calculateCurrentWaitMinutes(latestData.orders, latestData.settings, now);
+  const minutes = calculateDisplayedWaitFromPublicStatus(latestPublicStatus, now);
 
-  if (!latestData.settings.isOpen) {
+  if (!latestPublicStatus.isOpen) {
     statusTitle.textContent = "本日の受付は終了しました";
     waitTime.textContent = "";
     statusSubtitle.textContent = "営業時間内に更新されます。";
@@ -42,18 +42,18 @@ function renderPublic() {
     waitTime.textContent = `約 ${minutes} 分`;
     statusSubtitle.textContent = "";
     orderGuide.textContent = `今ご注文いただくと、約${minutes}分後に焙煎を開始します`;
-    finishGuide.textContent = "焙煎開始後、出来上がりまでさらに約15分ほどかかります";
+    finishGuide.textContent = `焙煎開始後、出来上がりまでさらに約${latestPublicStatus.finishEstimateMinutes || 15}分ほどかかります`;
     caution.textContent = "混雑状況や豆の種類により前後する場合があります";
   } else {
     statusTitle.textContent = "焙煎開始までの待ち時間";
     waitTime.textContent = "すぐにご案内できます";
     statusSubtitle.textContent = "";
     orderGuide.textContent = "今ご注文いただくと、すぐに焙煎を開始できます";
-    finishGuide.textContent = "焙煎開始後、出来上がりまで更に約15分ほどかかります";
+    finishGuide.textContent = `焙煎開始後、出来上がりまでさらに約${latestPublicStatus.finishEstimateMinutes || 15}分ほどかかります`;
     caution.textContent = "混雑状況や豆の種類により前後する場合があります";
   }
 
-  lastUpdated.textContent = `最終更新: ${formatDateTime(now)}`;
+  lastUpdated.textContent = `最終更新: ${formatDateTime(latestPublicStatus.updatedAt || now)}`;
 }
 
 setInterval(() => {

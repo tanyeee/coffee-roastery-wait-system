@@ -9,27 +9,74 @@ export const DEFAULT_SETTINGS = {
   manualAdjustMinutes: 0
 };
 
+export const DEFAULT_PUBLIC_STATUS = {
+  isOpen: true,
+  displayWaitMinutes: 0,
+  updatedAt: 0,
+  futureEvents: [],
+  finishEstimateMinutes: 15
+};
+
 const AUTO_CLOSE_HOUR = 19;
 
 export function subscribeAll(callback) {
-  const rootRef = ref(db, "/");
-  return onValue(rootRef, async (snapshot) => {
-    const data = snapshot.val() || {};
-    const normalized = {
-      settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) },
-      orders: data.orders || {},
-      logs: data.logs || {}
-    };
+  const state = {
+    settings: { ...DEFAULT_SETTINGS },
+    orders: {},
+    logs: {}
+  };
 
-    await enforceAutoCloseIfNeeded(normalized.settings);
-    callback(normalized);
+  const emit = () => {
+    callback({
+      settings: { ...DEFAULT_SETTINGS, ...(state.settings || {}) },
+      orders: state.orders || {},
+      logs: state.logs || {}
+    });
+  };
+
+  const unsubSettings = onValue(ref(db, "/settings"), async (snapshot) => {
+    state.settings = { ...DEFAULT_SETTINGS, ...(snapshot.val() || {}) };
+    await enforceAutoCloseIfNeeded(state.settings);
+    emit();
+  });
+
+  const unsubOrders = onValue(ref(db, "/orders"), (snapshot) => {
+    state.orders = snapshot.val() || {};
+    emit();
+  });
+
+  const unsubLogs = onValue(ref(db, "/logs"), (snapshot) => {
+    state.logs = snapshot.val() || {};
+    emit();
+  });
+
+  return () => {
+    unsubSettings();
+    unsubOrders();
+    unsubLogs();
+  };
+}
+
+export function subscribePublicStatus(callback) {
+  return onValue(ref(db, "/publicStatus"), (snapshot) => {
+    const value = snapshot.val() || {};
+    callback({
+      ...DEFAULT_PUBLIC_STATUS,
+      ...value,
+      futureEvents: normalizeFutureEvents(value.futureEvents)
+    });
   });
 }
 
 export async function ensureInitialData() {
-  const snapshot = await get(ref(db, "/settings"));
-  if (!snapshot.exists()) {
+  const settingsSnapshot = await get(ref(db, "/settings"));
+  if (!settingsSnapshot.exists()) {
     await set(ref(db, "/settings"), DEFAULT_SETTINGS);
+  }
+
+  const publicStatusSnapshot = await get(ref(db, "/publicStatus"));
+  if (!publicStatusSnapshot.exists()) {
+    await refreshPublicStatus();
   }
 }
 
@@ -38,6 +85,7 @@ async function enforceAutoCloseIfNeeded(settings) {
   if (now.getHours() >= AUTO_CLOSE_HOUR && settings.isOpen) {
     await update(ref(db, "/settings"), { isOpen: false });
     await writeLog("close_reception", null, Date.now());
+    await refreshPublicStatus();
   }
 }
 
@@ -72,6 +120,25 @@ export function calculateCurrentWaitMinutes(orders, settings, now = Date.now()) 
 
   const manualAdjust = Number(settings.manualAdjustMinutes || 0);
   return Math.max(0, orderMinutes + manualAdjust);
+}
+
+export function calculateDisplayedWaitFromPublicStatus(publicStatus, now = Date.now()) {
+  if (!publicStatus) {
+    return 0;
+  }
+
+  let current = Number(publicStatus.displayWaitMinutes || 0);
+  const events = normalizeFutureEvents(publicStatus.futureEvents);
+
+  for (const event of events) {
+    if (now >= Number(event.timestamp)) {
+      current = Number(event.waitMinutes || 0);
+    } else {
+      break;
+    }
+  }
+
+  return Math.max(0, current);
 }
 
 export function getActiveOrders(orders = {}) {
@@ -160,6 +227,67 @@ function buildDecayTimes(order, settings) {
   });
 }
 
+function normalizeFutureEvents(futureEvents) {
+  if (!futureEvents) {
+    return [];
+  }
+
+  if (Array.isArray(futureEvents)) {
+    return futureEvents
+      .filter(Boolean)
+      .map((event) => ({
+        timestamp: Number(event.timestamp),
+        waitMinutes: Number(event.waitMinutes)
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  return Object.values(futureEvents)
+    .filter(Boolean)
+    .map((event) => ({
+      timestamp: Number(event.timestamp),
+      waitMinutes: Number(event.waitMinutes)
+    }))
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+function buildFutureEvents(orders, settings, now = Date.now()) {
+  const activeOrders = getActiveOrders(orders);
+
+  const candidates = activeOrders
+    .flatMap(([, order]) => buildDecayTimes(order, settings))
+    .filter((timestamp) => timestamp > now);
+
+  const uniqueSortedTimestamps = [...new Set(candidates)].sort((a, b) => a - b);
+
+  return uniqueSortedTimestamps.map((timestamp) => ({
+    timestamp,
+    waitMinutes: calculateCurrentWaitMinutes(orders, settings, timestamp)
+  }));
+}
+
+export async function refreshPublicStatus() {
+  const [settingsSnapshot, ordersSnapshot] = await Promise.all([
+    get(ref(db, "/settings")),
+    get(ref(db, "/orders"))
+  ]);
+
+  const settings = { ...DEFAULT_SETTINGS, ...(settingsSnapshot.val() || {}) };
+  const orders = ordersSnapshot.val() || {};
+  const now = Date.now();
+
+  const publicStatus = {
+    isOpen: Boolean(settings.isOpen),
+    displayWaitMinutes: calculateCurrentWaitMinutes(orders, settings, now),
+    updatedAt: now,
+    futureEvents: buildFutureEvents(orders, settings, now),
+    finishEstimateMinutes: 15
+  };
+
+  await set(ref(db, "/publicStatus"), publicStatus);
+  return publicStatus;
+}
+
 export async function addOrder(settings = DEFAULT_SETTINGS) {
   if (!settings.isOpen) {
     throw new Error("受付を開始してください。");
@@ -175,6 +303,7 @@ export async function addOrder(settings = DEFAULT_SETTINGS) {
   });
 
   await writeLog("add_order", orderId, timestamp);
+  await refreshPublicStatus();
   return orderId;
 }
 
@@ -191,6 +320,7 @@ export async function cancelLatestActiveOrder(orders, settings) {
   const [orderId] = activeOrders[activeOrders.length - 1];
   await update(ref(db, `/orders/${orderId}`), { status: "cancelled" });
   await writeLog("cancel_order", orderId, now);
+  await refreshPublicStatus();
   return orderId;
 }
 
@@ -204,6 +334,7 @@ export async function setReceptionOpen(isOpen) {
 
   await update(ref(db, "/settings"), { isOpen });
   await writeLog(isOpen ? "open_reception" : "close_reception", null, timestamp);
+  await refreshPublicStatus();
 }
 
 export async function saveSettings(arg1, arg2) {
@@ -238,6 +369,8 @@ export async function saveSettings(arg1, arg2) {
     decayLagMinutes,
     decayStepMinutes
   });
+
+  await refreshPublicStatus();
 }
 
 export async function adjustManualWaitMinutes(delta, settings = DEFAULT_SETTINGS) {
@@ -249,6 +382,7 @@ export async function adjustManualWaitMinutes(delta, settings = DEFAULT_SETTINGS
   });
 
   await writeLog(delta > 0 ? "manual_adjust_plus" : "manual_adjust_minus", null, Date.now());
+  await refreshPublicStatus();
   return next;
 }
 
@@ -265,7 +399,6 @@ export function getLogTypeLabel(type) {
   const labels = {
     add_order: "注文追加",
     cancel_order: "取消",
-    complete_order: "1件戻す",
     open_reception: "受付開始",
     close_reception: "受付終了",
     manual_adjust_plus: "1分増やす",
