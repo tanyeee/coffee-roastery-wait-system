@@ -9,6 +9,7 @@
 
   var publicStatusUrl = window.PUBLIC_STATUS_URL;
   var latestPublicStatus = null;
+  var jsonpCounter = 0;
 
   function pad2(value) {
     return value < 10 ? "0" + value : String(value);
@@ -130,11 +131,8 @@
     lastUpdated.textContent = "最終更新: " + formatDateTime(latestPublicStatus.updatedAt || now);
   }
 
-  function handleFetchSuccess(responseText) {
-    try {
-      latestPublicStatus = JSON.parse(responseText) || {};
-      renderPublic();
-    } catch (error) {
+  function showLoadError() {
+    if (!latestPublicStatus) {
       statusTitle.textContent = "読み込みに失敗しました";
       waitTime.textContent = "";
       statusSubtitle.textContent = "時間をおいて再度ご確認ください。";
@@ -145,9 +143,7 @@
     }
   }
 
-  function fetchPublicStatus() {
-    var xhr;
-
+  function fetchPublicStatusJsonp() {
     if (!publicStatusUrl) {
       statusTitle.textContent = "設定エラーです";
       waitTime.textContent = "";
@@ -159,29 +155,65 @@
       return;
     }
 
-    xhr = new XMLHttpRequest();
-    xhr.open("GET", publicStatusUrl + "?t=" + new Date().getTime(), true);
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState !== 4) {
-        return;
+    jsonpCounter += 1;
+    var callbackName = "__publicStatusCallback" + jsonpCounter;
+    var script = document.createElement("script");
+    var timeoutId;
+
+    window[callbackName] = function (data) {
+      clearTimeout(timeoutId);
+      latestPublicStatus = data || {};
+      renderPublic();
+
+      try {
+        delete window[callbackName];
+      } catch (e) {
+        window[callbackName] = undefined;
       }
 
-      if (xhr.status >= 200 && xhr.status < 300) {
-        handleFetchSuccess(xhr.responseText);
-      } else if (!latestPublicStatus) {
-        statusTitle.textContent = "読み込みに失敗しました";
-        waitTime.textContent = "";
-        statusSubtitle.textContent = "時間をおいて再度ご確認ください。";
-        orderGuide.textContent = "";
-        finishGuide.textContent = "";
-        caution.textContent = "";
-        lastUpdated.textContent = "";
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
       }
     };
-    xhr.send();
+
+    script.onerror = function () {
+      clearTimeout(timeoutId);
+      showLoadError();
+
+      try {
+        delete window[callbackName];
+      } catch (e) {
+        window[callbackName] = undefined;
+      }
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+
+    timeoutId = setTimeout(function () {
+      showLoadError();
+
+      try {
+        delete window[callbackName];
+      } catch (e) {
+        window[callbackName] = undefined;
+      }
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    }, 10000);
+
+    script.src =
+      publicStatusUrl +
+      "?callback=" + encodeURIComponent(callbackName) +
+      "&t=" + new Date().getTime();
+
+    document.body.appendChild(script);
   }
 
-  fetchPublicStatus();
-  setInterval(fetchPublicStatus, 60000);
+  fetchPublicStatusJsonp();
+  setInterval(fetchPublicStatusJsonp, 60000);
   setInterval(renderPublic, 30000);
 })();
