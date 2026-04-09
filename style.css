@@ -75,11 +75,14 @@ body {
 
 .public-wait-time {
   margin: 20px 0 10px;
-  font-size: clamp(52px, 10vw, 110px);
-  line-height: 1.02;
+  font-size: clamp(36px, 8vw, 96px);
+  line-height: 1.2;
   font-weight: 800;
   color: var(--primary);
-  word-break: keep-all;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  text-align: center;
 }
 
 .public-status-subtitle {
@@ -382,7 +385,7 @@ body {
   }
 
   .public-wait-time {
-    font-size: clamp(58px, 9vw, 108px);
+    font-size: clamp(42px, 8vw, 108px);
   }
 
   .public-note {
