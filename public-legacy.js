@@ -94,6 +94,7 @@
     if (!latestPublicStatus) {
       statusTitle.textContent = "読み込み中...";
       waitTime.textContent = "--";
+      waitTime.style.fontSize = "";
       statusSubtitle.textContent = "";
       orderGuide.textContent = "";
       finishGuide.textContent = "";
@@ -108,6 +109,7 @@
     if (!latestPublicStatus.isOpen) {
       statusTitle.textContent = "本日の受付は終了しました";
       waitTime.textContent = "";
+      waitTime.style.fontSize = "";
       statusSubtitle.textContent = "営業時間内に更新されます。";
       orderGuide.textContent = "";
       finishGuide.textContent = "";
@@ -115,6 +117,7 @@
     } else if (minutes > 0) {
       statusTitle.textContent = "焙煎開始までの待ち時間";
       waitTime.textContent = "約 " + minutes + " 分";
+      waitTime.style.fontSize = "";
       statusSubtitle.textContent = "";
       orderGuide.textContent = "今ご注文いただくと、約" + minutes + "分後に焙煎を開始します";
       finishGuide.textContent = "焙煎開始後、出来上がりまでさらに約" + finishEstimateMinutes + "分ほどかかります";
@@ -122,6 +125,7 @@
     } else {
       statusTitle.textContent = "焙煎開始までの待ち時間";
       waitTime.textContent = "すぐにご案内できます";
+      waitTime.style.fontSize = "clamp(28px, 6vw, 72px)";
       statusSubtitle.textContent = "";
       orderGuide.textContent = "今ご注文いただくと、すぐに焙煎を開始できます";
       finishGuide.textContent = "焙煎開始後、出来上がりまでさらに約" + finishEstimateMinutes + "分ほどかかります";
@@ -135,6 +139,7 @@
     if (!latestPublicStatus) {
       statusTitle.textContent = "読み込みに失敗しました";
       waitTime.textContent = "";
+      waitTime.style.fontSize = "";
       statusSubtitle.textContent = "時間をおいて再度ご確認ください。";
       orderGuide.textContent = "";
       finishGuide.textContent = "";
@@ -147,6 +152,7 @@
     if (!publicStatusUrl) {
       statusTitle.textContent = "設定エラーです";
       waitTime.textContent = "";
+      waitTime.style.fontSize = "";
       statusSubtitle.textContent = "公開用データのURLが設定されていません。";
       orderGuide.textContent = "";
       finishGuide.textContent = "";
