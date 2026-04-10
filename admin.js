@@ -27,10 +27,12 @@ const adminPanel = document.getElementById("admin-panel");
 const loginForm = document.getElementById("login-form");
 const emailInput = document.getElementById("email-input");
 const passwordInput = document.getElementById("password-input");
+const loginButton = document.getElementById("login-button");
 const loginError = document.getElementById("login-error");
 
 const pinForm = document.getElementById("pin-form");
 const pinInput = document.getElementById("pin-input");
+const pinButton = document.getElementById("pin-button");
 const pinError = document.getElementById("pin-error");
 
 const actionMessage = document.getElementById("admin-action-message");
@@ -52,47 +54,105 @@ const settingsForm = document.getElementById("settings-form");
 const perOrderInput = document.getElementById("per-order-minutes");
 const decayLagInput = document.getElementById("decay-lag-minutes");
 const decayStepInput = document.getElementById("decay-step-minutes");
+const saveSettingsButton = document.getElementById("save-settings-button");
 const currentSettingsText = document.getElementById("current-settings-text");
 
 let latestData = null;
 let isFirebaseAuthenticated = false;
 let isPinAuthenticated = sessionStorage.getItem("roastery_admin_pin_authenticated") === "true";
 
-await ensureInitialData();
+function showAuthGate() {
+  authGate.classList.remove("hidden");
+  pinGate.classList.add("hidden");
+  adminPanel.classList.add("hidden");
+}
 
-subscribeAll((data) => {
-  latestData = data;
+function showPinGate() {
+  authGate.classList.add("hidden");
+  pinGate.classList.remove("hidden");
+  adminPanel.classList.add("hidden");
+}
 
-  if (isFirebaseAuthenticated && isPinAuthenticated) {
-    renderAdmin(data);
-  }
-});
+function showAdminPanel() {
+  authGate.classList.add("hidden");
+  pinGate.classList.add("hidden");
+  adminPanel.classList.remove("hidden");
+}
 
-onAuthStateChanged(auth, (user) => {
-  isFirebaseAuthenticated = !!user;
+function setLoginDisabled(disabled) {
+  emailInput.disabled = disabled;
+  passwordInput.disabled = disabled;
+  loginButton.disabled = disabled;
+}
 
-  if (!isFirebaseAuthenticated) {
-    sessionStorage.removeItem("roastery_admin_pin_authenticated");
-    isPinAuthenticated = false;
-    showAuthGate();
-    loginError.textContent = "未ログインです。";
-    return;
-  }
-
-  loginError.textContent = `ログインできました。(${user.email})`;
-
-  if (isPinAuthenticated) {
-    showAdminPanel();
-    if (latestData) {
-      renderAdmin(latestData);
+function setButtonsDisabled(disabled) {
+  [
+    addOrderButton,
+    cancelOrderButton,
+    minusOneMinuteButton,
+    plusOneMinuteButton,
+    openReceptionButton,
+    closeReceptionButton,
+    logoutButton,
+    saveSettingsButton
+  ].forEach((button) => {
+    if (button) {
+      button.disabled = disabled;
     }
-  } else {
-    showPinGate();
-  }
-});
+  });
+}
 
-loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
+function renderAdmin(data) {
+  const now = Date.now();
+  const waitMinutes = calculateCurrentWaitMinutes(data.orders, data.settings, now);
+  const activeOrders = getActiveOrders(data.orders);
+
+  const effectiveActiveOrdersCount = activeOrders.filter(([, order]) => {
+    return calculateOrderRemainingMinutes(order, data.settings, now) > 0;
+  }).length;
+
+  const nextDecayTime = findNextDecayTime(data.orders, data.settings, now);
+
+  currentWaitEl.textContent = waitMinutes > 0 ? formatMinutesLabel(waitMinutes) : "0分";
+  nextDecayEl.textContent = `次の自動減少目安: ${nextDecayTime ? formatTime(nextDecayTime) : "なし"}`;
+  openStatusEl.textContent = data.settings.isOpen ? "受付中" : "受付終了";
+  activeOrdersEl.textContent = String(effectiveActiveOrdersCount);
+
+  perOrderInput.placeholder = String(data.settings.perOrderMinutes);
+  decayLagInput.placeholder = String(data.settings.decayLagMinutes);
+  decayStepInput.placeholder = String(data.settings.decayStepMinutes);
+
+  perOrderInput.value = "";
+  decayLagInput.value = "";
+  decayStepInput.value = "";
+
+  currentSettingsText.textContent =
+    `現在設定: 加算 ${data.settings.perOrderMinutes}分 / ` +
+    `ラグ ${data.settings.decayLagMinutes}分 / ` +
+    `刻み ${data.settings.decayStepMinutes}分 / ` +
+    `手動補正 ${Number(data.settings.manualAdjustMinutes || 0)}分`;
+}
+
+async function runAction(action) {
+  actionMessage.textContent = "処理中...";
+  setButtonsDisabled(true);
+
+  try {
+    const message = await action();
+    actionMessage.textContent = message;
+  } catch (error) {
+    console.error(error);
+    actionMessage.textContent = error && error.message ? error.message : "エラーが発生しました。";
+  } finally {
+    setButtonsDisabled(false);
+  }
+}
+
+async function handleLogin(event) {
+  if (event) {
+    event.preventDefault();
+  }
+
   loginError.textContent = "ログイン処理中です...";
   setLoginDisabled(true);
 
@@ -109,14 +169,18 @@ loginForm.addEventListener("submit", async (event) => {
   } finally {
     setLoginDisabled(false);
   }
-});
 
-pinForm.addEventListener("submit", (event) => {
-  event.preventDefault();
+  return false;
+}
+
+function handlePinAuth(event) {
+  if (event) {
+    event.preventDefault();
+  }
 
   if (!latestData) {
     pinError.textContent = "データの読み込み中です。";
-    return;
+    return false;
   }
 
   if (pinInput.value === String(latestData.settings.pinCode || "")) {
@@ -128,7 +192,16 @@ pinForm.addEventListener("submit", (event) => {
   } else {
     pinError.textContent = "PIN認証できませんでした。";
   }
-});
+
+  return false;
+}
+
+// 先にフォーム送信を止める
+loginForm.addEventListener("submit", handleLogin);
+loginButton.addEventListener("click", handleLogin);
+
+pinForm.addEventListener("submit", handlePinAuth);
+pinButton.addEventListener("click", handlePinAuth);
 
 logoutButton.addEventListener("click", async () => {
   sessionStorage.removeItem("roastery_admin_pin_authenticated");
@@ -189,94 +262,57 @@ settingsForm.addEventListener("submit", async (event) => {
     });
     return "設定を保存しました。";
   });
+
+  return false;
 });
 
-function showAuthGate() {
-  authGate.classList.remove("hidden");
-  pinGate.classList.add("hidden");
-  adminPanel.classList.add("hidden");
-}
+function initAuth() {
+  onAuthStateChanged(auth, (user) => {
+    isFirebaseAuthenticated = !!user;
 
-function showPinGate() {
-  authGate.classList.add("hidden");
-  pinGate.classList.remove("hidden");
-  adminPanel.classList.add("hidden");
-}
+    if (!isFirebaseAuthenticated) {
+      sessionStorage.removeItem("roastery_admin_pin_authenticated");
+      isPinAuthenticated = false;
+      showAuthGate();
+      loginError.textContent = "未ログインです。";
+      return;
+    }
 
-function showAdminPanel() {
-  authGate.classList.add("hidden");
-  pinGate.classList.add("hidden");
-  adminPanel.classList.remove("hidden");
-}
+    loginError.textContent = `ログインできました。(${user.email})`;
 
-function renderAdmin(data) {
-  const now = Date.now();
-  const waitMinutes = calculateCurrentWaitMinutes(data.orders, data.settings, now);
-  const activeOrders = getActiveOrders(data.orders);
-
-  const effectiveActiveOrdersCount = activeOrders.filter(([, order]) => {
-    return calculateOrderRemainingMinutes(order, data.settings, now) > 0;
-  }).length;
-
-  const nextDecayTime = findNextDecayTime(data.orders, data.settings, now);
-
-  currentWaitEl.textContent = waitMinutes > 0 ? formatMinutesLabel(waitMinutes) : "0分";
-  nextDecayEl.textContent = `次の自動減少目安: ${nextDecayTime ? formatTime(nextDecayTime) : "なし"}`;
-  openStatusEl.textContent = data.settings.isOpen ? "受付中" : "受付終了";
-  activeOrdersEl.textContent = String(effectiveActiveOrdersCount);
-
-  perOrderInput.placeholder = String(data.settings.perOrderMinutes);
-  decayLagInput.placeholder = String(data.settings.decayLagMinutes);
-  decayStepInput.placeholder = String(data.settings.decayStepMinutes);
-
-  perOrderInput.value = "";
-  decayLagInput.value = "";
-  decayStepInput.value = "";
-
-  currentSettingsText.textContent =
-    `現在設定: 加算 ${data.settings.perOrderMinutes}分 / ` +
-    `ラグ ${data.settings.decayLagMinutes}分 / ` +
-    `刻み ${data.settings.decayStepMinutes}分 / ` +
-    `手動補正 ${Number(data.settings.manualAdjustMinutes || 0)}分`;
-}
-
-async function runAction(action) {
-  actionMessage.textContent = "処理中...";
-  setButtonsDisabled(true);
-
-  try {
-    const message = await action();
-    actionMessage.textContent = message;
-  } catch (error) {
-    console.error(error);
-    actionMessage.textContent = error.message || "エラーが発生しました。";
-  } finally {
-    setButtonsDisabled(false);
-  }
-}
-
-function setButtonsDisabled(disabled) {
-  [
-    addOrderButton,
-    cancelOrderButton,
-    minusOneMinuteButton,
-    plusOneMinuteButton,
-    openReceptionButton,
-    closeReceptionButton,
-    logoutButton
-  ].forEach((button) => {
-    button.disabled = disabled;
+    if (isPinAuthenticated) {
+      showAdminPanel();
+      if (latestData) {
+        renderAdmin(latestData);
+      }
+    } else {
+      showPinGate();
+    }
   });
 }
 
-function setLoginDisabled(disabled) {
-  emailInput.disabled = disabled;
-  passwordInput.disabled = disabled;
-  loginForm.querySelector("button[type='submit']").disabled = disabled;
+async function initData() {
+  try {
+    await ensureInitialData();
+
+    subscribeAll((data) => {
+      latestData = data;
+
+      if (isFirebaseAuthenticated && isPinAuthenticated) {
+        renderAdmin(data);
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    loginError.textContent = "初期化に失敗しました。時間をおいて再読み込みしてください。";
+  }
 }
+
+initAuth();
+initData();
 
 setInterval(() => {
   if (latestData && isFirebaseAuthenticated && isPinAuthenticated) {
     renderAdmin(latestData);
   }
-}, 60 * 1000);
+}, 60000);
