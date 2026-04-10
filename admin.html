@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>管理画面 | 焙煎待ち時間</title>
-    <link rel="stylesheet" href="./style.css?v=20260410-admin2" />
+    <link rel="stylesheet" href="./style.css?v=20260326-2" />
   </head>
   <body>
     <main class="page admin-page">
@@ -13,7 +13,7 @@
         <h1 class="section-title">管理者ログイン</h1>
         <p class="section-description">Firebase Authentication でログインしてください。</p>
 
-        <form id="login-form" class="pin-form" action="javascript:void(0);" onsubmit="return false;">
+        <form id="login-form" class="pin-form">
           <input
             id="email-input"
             class="input"
@@ -28,7 +28,7 @@
             placeholder="パスワード"
             autocomplete="current-password"
           />
-          <button id="login-button" type="button" class="button button-primary">ログイン</button>
+          <button type="submit" class="button button-primary">ログイン</button>
         </form>
 
         <p id="login-error" class="error-message"></p>
@@ -39,7 +39,7 @@
         <h1 class="section-title">PIN確認</h1>
         <p class="section-description">4桁のPINを入力してください。</p>
 
-        <form id="pin-form" class="pin-form" action="javascript:void(0);" onsubmit="return false;">
+        <form id="pin-form" class="pin-form">
           <input
             id="pin-input"
             class="input pin-input"
@@ -49,7 +49,7 @@
             placeholder="4桁PIN"
             autocomplete="off"
           />
-          <button id="pin-button" type="button" class="button button-primary">入室</button>
+          <button type="submit" class="button button-primary">入室</button>
         </form>
 
         <p id="pin-error" class="error-message"></p>
@@ -100,7 +100,7 @@
 
         <section class="card">
           <h2 class="card-title">設定</h2>
-          <form id="settings-form" class="settings-form" action="javascript:void(0);" onsubmit="return false;">
+          <form id="settings-form" class="settings-form">
             <label class="field">
               <span class="field-label">1件あたり加算時間（分）</span>
               <input id="per-order-minutes" class="input" type="number" min="1" step="1" />
@@ -113,13 +113,13 @@
               <span class="field-label">減少刻み時間（分）</span>
               <input id="decay-step-minutes" class="input" type="number" min="1" step="1" />
             </label>
-            <button id="save-settings-button" type="button" class="button button-primary">設定を保存</button>
+            <button type="submit" class="button button-primary">設定を保存</button>
           </form>
           <p id="current-settings-text" class="action-message"></p>
         </section>
       </section>
     </main>
 
-    <script type="module" src="./admin.js?v=20260410-admin2"></script>
+    <script type="module" src="./admin.js?v=20260326-2"></script>
   </body>
 </html>
