@@ -3,7 +3,7 @@ import {
   signInWithEmailAndPassword,
   onAuthStateChanged,
   signOut
-} from "./firebase-config.js";
+} from "./firebase-config.js?v=20260410-admin2";
 import {
   ensureInitialData,
   subscribeAll,
@@ -18,7 +18,7 @@ import {
   setReceptionOpen,
   saveSettings,
   adjustManualWaitMinutes
-} from "./app.js";
+} from "./app.js?v=20260410-admin2";
 
 const authGate = document.getElementById("auth-gate");
 const pinGate = document.getElementById("pin-gate");
@@ -27,10 +27,12 @@ const adminPanel = document.getElementById("admin-panel");
 const loginForm = document.getElementById("login-form");
 const emailInput = document.getElementById("email-input");
 const passwordInput = document.getElementById("password-input");
+const loginButton = document.getElementById("login-button");
 const loginError = document.getElementById("login-error");
 
 const pinForm = document.getElementById("pin-form");
 const pinInput = document.getElementById("pin-input");
+const pinButton = document.getElementById("pin-button");
 const pinError = document.getElementById("pin-error");
 
 const actionMessage = document.getElementById("admin-action-message");
@@ -52,11 +54,14 @@ const settingsForm = document.getElementById("settings-form");
 const perOrderInput = document.getElementById("per-order-minutes");
 const decayLagInput = document.getElementById("decay-lag-minutes");
 const decayStepInput = document.getElementById("decay-step-minutes");
+const saveSettingsButton = document.getElementById("save-settings-button");
 const currentSettingsText = document.getElementById("current-settings-text");
 
 let latestData = null;
 let isFirebaseAuthenticated = false;
 let isPinAuthenticated = sessionStorage.getItem("roastery_admin_pin_authenticated") === "true";
+
+console.log("[admin] script loaded");
 
 await ensureInitialData();
 
@@ -91,8 +96,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
+async function handleLogin() {
   loginError.textContent = "ログイン処理中です...";
   setLoginDisabled(true);
 
@@ -109,11 +113,9 @@ loginForm.addEventListener("submit", async (event) => {
   } finally {
     setLoginDisabled(false);
   }
-});
+}
 
-pinForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-
+function handlePinAuth() {
   if (!latestData) {
     pinError.textContent = "データの読み込み中です。";
     return;
@@ -128,7 +130,19 @@ pinForm.addEventListener("submit", (event) => {
   } else {
     pinError.textContent = "PIN認証できませんでした。";
   }
+}
+
+loginForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+  handleLogin();
 });
+loginButton.addEventListener("click", handleLogin);
+
+pinForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+  handlePinAuth();
+});
+pinButton.addEventListener("click", handlePinAuth);
 
 logoutButton.addEventListener("click", async () => {
   sessionStorage.removeItem("roastery_admin_pin_authenticated");
@@ -178,9 +192,10 @@ closeReceptionButton.addEventListener("click", async () => {
   });
 });
 
-settingsForm.addEventListener("submit", async (event) => {
+settingsForm.addEventListener("submit", function (event) {
   event.preventDefault();
-
+});
+saveSettingsButton.addEventListener("click", async () => {
   await runAction(async () => {
     await saveSettings(latestData.settings, {
       perOrderMinutes: perOrderInput.value,
@@ -263,7 +278,8 @@ function setButtonsDisabled(disabled) {
     plusOneMinuteButton,
     openReceptionButton,
     closeReceptionButton,
-    logoutButton
+    logoutButton,
+    saveSettingsButton
   ].forEach((button) => {
     button.disabled = disabled;
   });
@@ -272,11 +288,11 @@ function setButtonsDisabled(disabled) {
 function setLoginDisabled(disabled) {
   emailInput.disabled = disabled;
   passwordInput.disabled = disabled;
-  loginForm.querySelector("button[type='submit']").disabled = disabled;
+  loginButton.disabled = disabled;
 }
 
 setInterval(() => {
   if (latestData && isFirebaseAuthenticated && isPinAuthenticated) {
     renderAdmin(latestData);
   }
-}, 60 * 1000);
+}, 60000);
